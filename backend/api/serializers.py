@@ -1,6 +1,5 @@
 """
 Serializers for City Care API.
-Adapted for Hybrid SQLite/MongoDB architecture.
 """
 
 from rest_framework import serializers
@@ -47,6 +46,8 @@ class ComplaintSerializer(serializers.ModelSerializer):
 
 class ComplaintCreateSerializer(serializers.ModelSerializer):
     image_before = serializers.ImageField(required=False)
+    location_coords = serializers.CharField(required=False, allow_blank=True)
+    location_address = serializers.CharField(required=False, allow_blank=True)
     
     class Meta:
         model = Complaint
@@ -54,15 +55,17 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
 
 
 class AssignComplaintSerializer(serializers.Serializer):
-    """Serializer for assigning complaints."""
     collector_id = serializers.IntegerField()
 
 
-class ResolveComplaintSerializer(serializers.Serializer):
-    """Serializer for resolving complaints."""
-    image_after = serializers.ImageField()
+class PublicComplaintSerializer(serializers.ModelSerializer):
+    """Public lookup serializer — no auth required, exposes only safe fields."""
 
+    class Meta:
+        model = Complaint
+        fields = (
+            'complaint_id', 'status', 'location_address',
+            'image_before', 'image_after',
+            'created_at', 'updated_at', 'urgency_level',
+        )
 
-class RejectComplaintSerializer(serializers.Serializer):
-    """Serializer for rejecting complaints."""
-    reason = serializers.CharField()

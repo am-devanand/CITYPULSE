@@ -1,8 +1,4 @@
-"""
-Models for City Care waste management system.
-User model is stored in SQLite (Django Auth).
-Complaint structure is defined here but stored in MongoDB.
-"""
+import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -10,7 +6,6 @@ from django.utils import timezone
 
 
 class User(AbstractUser):
-    """Extended User model with role-based access control (Stored in SQLite)."""
     
     ROLE_CHOICES = [
         ('CITIZEN', 'Citizen'),
@@ -30,7 +25,6 @@ class User(AbstractUser):
 
 
 class Complaint(models.Model):
-    """Complaint model stored in SQLite."""
     
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
@@ -71,39 +65,8 @@ class Complaint(models.Model):
         
     def save(self, *args, **kwargs):
         if not self.complaint_id:
-            # Generate ID only on creation
-            # We need to save first to get PK for a truly unique sequential ID, 
-            # or rely on UUID/Timestamp. Let's stick to the CC-YYYYMMDD-XXXX format
-            # For simplicity in SQLite, we might use a random suffix or count
             today = timezone.now().strftime('%Y%m%d')
-            import uuid
             suffix = str(uuid.uuid4().int)[:4]
             self.complaint_id = f"CC-{today}-{suffix}"
         super().save(*args, **kwargs)
 
-
-# Complaint Model is now managed via PyMongo directly in views
-# But we keep this class for reference or if we wanted to use it for validation
-class ComplaintStructure:
-    """
-    Reference structure for Complaint in MongoDB.
-    Not a Django Model.
-    
-    Fields:
-    - _id: ObjectId
-    - complaint_id: str
-    - complainant_id: int (User.id)
-    - complainant_name: str
-    - image_before: str (path)
-    - image_after: str (path)
-    - location_coords: str
-    - location_address: str
-    - status: str (PENDING, ASSIGNED, RESOLVED, REJECTED, ESCALATED)
-    - urgency_level: int
-    - assigned_to_id: int (User.id)
-    - assigned_by_id: int (User.id)
-    - rejected_reason: str
-    - created_at: datetime
-    - updated_at: datetime
-    """
-    pass

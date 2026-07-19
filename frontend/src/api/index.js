@@ -10,7 +10,8 @@ const api = axios.create({
     xsrfHeaderName: 'X-CSRFToken',
 });
 
-// Auth
+export const getCsrfToken = () => api.get('/csrf/');
+
 export const login = (username, password, role) =>
     api.post('/login/', { username, password, role });
 
@@ -20,11 +21,9 @@ export const logout = () =>
 export const getCurrentUser = () =>
     api.get('/users/me/');
 
-// Users
 export const getCollectors = () =>
     api.get('/users/collectors/');
 
-// Complaints
 export const getComplaints = (params = {}) =>
     api.get('/complaints/', { params });
 
@@ -44,11 +43,16 @@ export const resolveComplaint = (complaintId, formData) =>
 export const rejectComplaint = (complaintId, reason) =>
     api.post(`/complaints/${complaintId}/reject/`, { reason });
 
-// Simulation & Stats
 export const simulateTimeout = (complaintIds = []) =>
     api.post('/simulate-timeout/', { complaint_ids: complaintIds });
 
+export const signup = (username, password, phone = '') =>
+    api.post('/users/', { username, password, phone, role: 'CITIZEN' });
+
 export const getDashboardStats = () =>
     api.get('/stats/');
+
+export const lookupComplaint = (complaint_id) =>
+    api.get(`/complaints/lookup/${complaint_id}/`);
 
 export default api;

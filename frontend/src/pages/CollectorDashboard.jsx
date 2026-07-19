@@ -1,45 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/GlassCard';
-import { getComplaints, resolveComplaint, rejectComplaint, logout, simulateTimeout } from '../api';
+import { getComplaints, resolveComplaint, rejectComplaint, simulateTimeout } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import useFetch from '../hooks/useFetch';
+import DashboardLayout from '../components/DashboardLayout';
+import { AlertTriangle, Sparkles, MapPin, X, Check } from 'lucide-react';
+
+const getMapsUrl = (coords) => {
+    if (!coords || typeof coords !== 'string') return null;
+    const trimmed = coords.trim();
+    const [lat, lng] = trimmed.split(',').map(s => s.trim());
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
+};
+
+const MapLink = ({ coords }) => {
+    const mapsUrl = getMapsUrl(coords);
+    if (mapsUrl) {
+        return (
+            <a href={mapsUrl} target="_blank" rel="noreferrer"
+               className="text-blue-400 text-sm hover:underline flex items-center gap-1 mt-1">
+                <MapPin className="w-5 h-5 inline-block" /> Open in Maps
+            </a>
+        );
+    }
+    return (
+        <span className="text-white/40 text-sm flex items-center gap-1 mt-1">
+            <MapPin className="w-5 h-5 inline-block" /> Location unavailable
+        </span>
+    );
+};
 
 const CollectorDashboard = () => {
     const navigate = useNavigate();
-    const [tasks, setTasks] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const { toast } = useToast();
     const [activeTask, setActiveTask] = useState(null); // ID of task being worked on
+
+    const handle401 = (promise) => promise.catch(err => {
+        if (err.response?.status === 401) navigate('/login/collector');
+    });
+
     const [actionType, setActionType] = useState(null); // 'resolve' or 'reject'
     const [formData, setFormData] = useState({ image_after: null, reason: '' });
 
+    const { data: tasks, loading, error: fetchError, execute } = useFetch(
+        () => getComplaints({ assigned_to: user?.id, status: 'ASSIGNED' }).then(r => r.data),
+        [user?.id]
+    );
+
     useEffect(() => {
-        fetchTasks();
-    }, []);
-
-    const fetchTasks = async () => {
-        try {
-            // Get current user ID from local storage to filter? 
-            // Actually backend filters by 'me' implicitly or we pass ID. 
-            // Implementation Plan mentions endpoint /complaints/?assigned_to=ID
-            // But let's assume `getComplaints` could be updated to support 'my tasks' or we use `getComplaints({ assigned_to: myId })`
-            // For now, let's look at `getComplaints` implementation in previous step.
-            // Ideally we need the user ID. 
-            const userStr = localStorage.getItem('user');
-            if (!userStr) { navigate('/login/collector'); return; }
-            const user = JSON.parse(userStr);
-
-            const res = await getComplaints({ assigned_to: user.id, status: 'ASSIGNED' });
-            setTasks(res.data);
-            setLoading(false);
-        } catch (err) {
-            console.error(err);
-            if (err.response?.status === 401) navigate('/login/collector');
+        if (fetchError?.response?.status === 401) {
+            navigate('/login/collector');
         }
-    };
+    }, [fetchError, navigate]);
 
     const handleResolve = async (e) => {
         e.preventDefault();
-        if (!formData.image_after) return alert("Please upload proof image");
+        if (!formData.image_after) return toast("Please upload proof image", "warning");
 
         const data = new FormData();
         data.append('image_after', formData.image_after);
@@ -47,22 +68,22 @@ const CollectorDashboard = () => {
         try {
             await resolveComplaint(activeTask, data);
             resetAction();
-            fetchTasks();
+            handle401(execute());
         } catch (err) {
-            alert("Failed to resolve task");
+            toast("Failed to resolve task", "error");
         }
     };
 
     const handleReject = async (e) => {
         e.preventDefault();
-        if (!formData.reason) return alert("Please provide a reason");
+        if (!formData.reason) return toast("Please provide a reason", "warning");
 
         try {
             await rejectComplaint(activeTask, formData.reason);
             resetAction();
-            fetchTasks();
+            handle401(execute());
         } catch (err) {
-            alert("Failed to reject task");
+            toast("Failed to reject task", "error");
         }
     };
 
@@ -73,41 +94,30 @@ const CollectorDashboard = () => {
     };
 
     const handleSimulateDelay = async () => {
-        // Force escalate all my tasks or simulate a global timeout
         try {
             await simulateTimeout(tasks.map(t => t.id));
-            alert("Simulation triggered! 16hr delay simulated. Check Officer Dashboard.");
-            fetchTasks(); // They should disappear from here if status changes to ESCALATED? 
-            // Actually Officer dashboard sees ESCALATED, but maybe collector still sees them or they get reassigned?
-            // Requirement says: "Clicking this forces the current pending tasks to escalate."
+            toast("Simulation triggered! 16hr delay simulated. Check Officer Dashboard.", "info");
+            handle401(execute());
         } catch (err) {
-            console.error(err);
+            toast("Simulation failed", "error");
         }
     };
 
     return (
-        <div className="min-h-screen bg-amber-900 p-6 relative overflow-x-hidden">
-            {/* Background Glow */}
-            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-orange-500/10 rounded-full blur-[120px]" />
-
-            <div className="max-w-5xl mx-auto relative z-10">
-                <header className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">My Tasks</h1>
-                        <p className="text-orange-200/60">Garbage Collector Dashboard</p>
-                    </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handleSimulateDelay}
-                            className="px-4 py-2 bg-red-500/20 border border-red-500/50 hover:bg-red-500/40 text-red-100 rounded-lg text-sm transition"
-                        >
-                            ⚠️ Simulate Delay
-                        </button>
-                        <button onClick={() => { logout(); navigate('/'); }} className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 text-white transition">
-                            Logout
-                        </button>
-                    </div>
-                </header>
+        <DashboardLayout
+            title="My Tasks"
+            subtitle="Garbage Collector Dashboard"
+            role="collector"
+            actions={
+                <button
+                    onClick={handleSimulateDelay}
+                    className="px-4 py-2 bg-red-500/20 border border-red-500/50 hover:bg-red-500/40 text-red-100 rounded-lg text-sm transition"
+                >
+                    <AlertTriangle className="w-5 h-5 inline-block" /> Simulate Delay
+                </button>
+            }
+        >
+            <div className="max-w-5xl mx-auto">
 
                 {loading ? (
                     <div className="text-white text-center py-20">Loading tasks...</div>
@@ -116,7 +126,7 @@ const CollectorDashboard = () => {
                         <AnimatePresence>
                             {tasks.length === 0 && (
                                 <div className="text-center py-20 text-white/50 bg-white/5 rounded-2xl border border-white/10">
-                                    <p className="text-4xl mb-4">✨</p>
+                                    <p className="text-4xl mb-4"><Sparkles className="w-5 h-5 inline-block" /></p>
                                     <p>Clean sheet! No tasks assigned.</p>
                                 </div>
                             )}
@@ -130,7 +140,6 @@ const CollectorDashboard = () => {
                                     exit={{ opacity: 0, height: 0 }}
                                 >
                                     <GlassCard className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                                        {/* Left: Image & Info */}
                                         <div className="flex-1 flex gap-4">
                                             <img
                                                 src={task.image_before}
@@ -145,18 +154,10 @@ const CollectorDashboard = () => {
                                                     </span>
                                                 </div>
                                                 <h3 className="text-lg font-bold text-white">{task.location_address || "No Address"}</h3>
-                                                <a
-                                                    href={`https://www.google.com/maps/search/?api=1&query=${task.location_coords}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-blue-400 text-sm hover:underline flex items-center gap-1 mt-1"
-                                                >
-                                                    📍 Open in Maps
-                                                </a>
+                                                <MapLink coords={task.location_coords} />
                                             </div>
                                         </div>
 
-                                        {/* Right: Actions */}
                                         <div className="w-full md:w-auto flex flex-col items-end gap-2 min-w-[300px]">
                                             {activeTask === task.id ? (
                                                 <div className="w-full bg-black/20 p-4 rounded-lg border border-white/10">
@@ -170,6 +171,7 @@ const CollectorDashboard = () => {
                                                             <input
                                                                 type="file"
                                                                 accept="image/*"
+                                                                aria-label="Upload proof image"
                                                                 onChange={(e) => setFormData({ ...formData, image_after: e.target.files[0] })}
                                                                 className="text-sm"
                                                                 required
@@ -199,13 +201,13 @@ const CollectorDashboard = () => {
                                                         onClick={() => { setActiveTask(task.id); setActionType('reject'); }}
                                                         className="flex-1 px-4 py-2 border border-red-400/50 text-red-200 rounded-lg hover:bg-red-500/20 transition whitespace-nowrap"
                                                     >
-                                                        ✗ Reject
+                                                        <X className="w-5 h-5 inline-block" /> Reject
                                                     </button>
                                                     <button
                                                         onClick={() => { setActiveTask(task.id); setActionType('resolve'); }}
                                                         className="flex-1 px-6 py-2 bg-green-600 rounded-lg text-white font-bold hover:bg-green-500 shadow-lg shadow-green-900/20 whitespace-nowrap"
                                                     >
-                                                        ✓ Cleaned
+                                                        <Check className="w-5 h-5 inline-block" /> Cleaned
                                                     </button>
                                                 </div>
                                             )}
@@ -217,7 +219,7 @@ const CollectorDashboard = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </DashboardLayout>
     );
 };
 

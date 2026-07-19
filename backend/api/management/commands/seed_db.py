@@ -6,10 +6,12 @@ User = get_user_model()
 class Command(BaseCommand):
     help = 'Seeds the database with initial data'
 
+    def add_arguments(self, parser):
+        parser.add_argument('--force', action='store_true', help='Delete existing complaints and re-seed')
+
     def handle(self, *args, **options):
         self.stdout.write('Seeding data...')
         
-        # Create Users
         users_data = [
             {'username': 'admin', 'password': 'admin', 'role': 'OFFICER', 'email': 'admin@citycare.com'},
             {'username': 'inspector', 'password': 'admin', 'role': 'INSPECTOR', 'email': 'inspector@citycare.com'},
@@ -24,26 +26,33 @@ class Command(BaseCommand):
                 'email': u['email'],
                 'first_name': u.get('first_name', '')
             })
+            user.set_password(u['password'])
+            user.save()
             if created:
-                user.set_password(u['password'])
-                user.save()
                 self.stdout.write(f"Created user: {u['username']} ({u['role']})")
             else:
-                user.set_password(u['password'])
-                user.save()
                 self.stdout.write(f"Updated password for existing user: {u['username']}")
-
-        # Create Sample Complaints
+        
         from api.models import Complaint
         
-        # Clear existing
-        Complaint.objects.all().delete()
-        
-        citizen_user = User.objects.get(username='guest') if User.objects.filter(username='guest').exists() else None
-        
-        if not citizen_user:
-             # Create a standard citizen for seeding
-             citizen_user = User.objects.create_user('citizen', 'citizen@test.com', 'password', role='CITIZEN')
+        if options.get('force'):
+            Complaint.objects.all().delete()
+            self.stdout.write('Force flag: deleted existing complaints.')
+        elif Complaint.objects.exists():
+            self.stdout.write('Complaints already exist. Use --force to re-seed.')
+            return
+
+        guest_user, created = User.objects.get_or_create(
+            username='guest',
+            defaults={'role': 'CITIZEN', 'email': 'guest@citycare.com'}
+        )
+        guest_user.set_password('guest')
+        guest_user.save()
+        if created:
+            self.stdout.write("Created guest user")
+        else:
+            self.stdout.write("Updated password for guest user")
+        citizen_user = guest_user
 
         complaints_data = [
             {

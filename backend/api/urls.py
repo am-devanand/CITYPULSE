@@ -17,12 +17,12 @@ urlpatterns = [
     # Authentication
     path('login/', views.LoginView.as_view(), name='login'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
+    path('csrf/', views.CSRFTokenView.as_view(), name='csrf-token'),
     
-    # Complaint Actions
-    path('complaints/<str:complaint_id>/assign/', views.AssignComplaintView.as_view(), name='assign-complaint'),
-    path('complaints/<str:complaint_id>/resolve/', views.ResolveComplaintView.as_view(), name='resolve-complaint'),
-    path('complaints/<str:complaint_id>/reject/', views.RejectComplaintView.as_view(), name='reject-complaint'),
     
+    # Public Lookup
+    path('complaints/lookup/<str:complaint_id>/', views.PublicComplaintLookupView.as_view(), name='complaint-lookup'),
+
     # Simulation & Stats
     path('simulate-timeout/', views.SimulateTimeoutView.as_view(), name='simulate-timeout'),
     path('stats/', views.dashboard_stats, name='dashboard-stats'),

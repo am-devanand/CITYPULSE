@@ -1,17 +1,18 @@
 """
-Django settings for citycare project with MongoDB configuration.
+Django settings for citycare waste management system.
 """
 
 from pathlib import Path
 import os
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-citycare-dev-key-change-in-production'
+SECRET_KEY = config('SECRET_KEY')
 
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,172.16.0.2,192.168.1.9').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -28,6 +29,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -56,21 +58,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'citycare.wsgi.application'
 
-# Database - Hybrid Approach
-# SQLite for Auth/System (Django default)
-# MongoDB for Business Data (Complaints) via PyMongo
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-# MongoDB Configuration
-import pymongo
-MONGO_URI = 'mongodb://localhost:27017'
-MONGO_CLIENT = pymongo.MongoClient(MONGO_URI)
-MONGO_DB = MONGO_CLIENT['citycare_db']
 
 # Custom User Model
 AUTH_USER_MODEL = 'api.User'
@@ -97,7 +90,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
 }
 
@@ -106,6 +99,8 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://172.16.0.2:5173",
+    "http://192.168.1.9:5173",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -113,6 +108,8 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://172.16.0.2:5173",
+    "http://192.168.1.9:5173",
 ]
 
 # Internationalization
@@ -123,6 +120,7 @@ USE_TZ = True
 
 # Static files
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files for complaint images
 MEDIA_URL = '/media/'
