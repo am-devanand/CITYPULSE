@@ -18,13 +18,25 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating new users."""
-    
-    password = serializers.CharField(write_only=True, min_length=4)
+    password = serializers.CharField(write_only=True, min_length=4, error_messages={'min_length': 'Password must be at least 4 characters.'})
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'role', 'first_name', 'last_name', 'phone']
+        extra_kwargs = {
+            'username': {'error_messages': {'required': 'Username is required.', 'unique': 'This username is already taken.'}},
+        }
+    
+    def validate_username(self, value):
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError('This username is already taken.')
+        return value
+    
+    def validate_phone(self, value):
+        if value and not value.startswith('+'):
+            raise serializers.ValidationError('Phone number must include country code (e.g., +91XXXXXXXXXX).')
+        return value
     
     def create(self, validated_data):
         password = validated_data.pop('password')

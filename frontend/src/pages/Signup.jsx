@@ -45,12 +45,18 @@ const Signup = () => {
 
             navigate('/login/citizen');
         } catch (err) {
-            const data = err.response?.data;
-            if (typeof data === 'object' && data !== null) {
-                const messages = Object.values(data).flat().join(' ');
-                setError(messages || 'Registration failed. Please try again.');
+            if (!err.response) {
+                setError('Unable to connect to server. Please check your internet connection.');
+            } else if (err.response.status >= 500) {
+                setError('Server error. Please try again later.');
             } else {
-                setError('Registration failed. Please try again.');
+                const data = err.response?.data;
+                if (typeof data === 'object' && data !== null) {
+                    const messages = Object.values(data).flat().join(' ');
+                    setError(messages || 'Registration failed. Please try again.');
+                } else {
+                    setError('Registration failed. Please try again.');
+                }
             }
         } finally {
             setLoading(false);
@@ -73,7 +79,7 @@ const Signup = () => {
                     </div>
 
                     {error && (
-                        <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-100 text-sm text-center">
+                        <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-100 text-sm text-center" role="alert" aria-live="assertive">
                             {error}
                         </div>
                     )}

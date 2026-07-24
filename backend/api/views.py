@@ -3,12 +3,12 @@ from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import viewsets, status, serializers
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
 from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from rest_framework.permissions import AllowAny
 
 from .models import User, Complaint
@@ -21,6 +21,15 @@ from .serializers import (
 from .utils import is_within_radius
 
 logger = logging.getLogger(__name__)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    return Response({
+        'status': 'healthy',
+        'service': 'citycare-api',
+    })
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -50,14 +59,20 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'error': 'Not authenticated'}, status=401)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     
     def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
+        username = request.data.get('username', '').strip()
+        password = request.data.get('password', '')
         role = request.data.get('role', 'CITIZEN')
+        
+        if not username:
+            return Response({'error': 'Username is required.'}, status=400)
+        if not password:
+            return Response({'error': 'Password is required.'}, status=400)
         
         if role == 'CITIZEN' and username == 'guest':
             guest_user, created = User.objects.get_or_create(
@@ -72,7 +87,7 @@ class LoginView(APIView):
         user = authenticate(username=username, password=password)
         if user:
             if user.role != role:
-                return Response({'error': f'User is not a {role}'}, status=403)
+                return Response({'error': f'This account is registered as {user.get_role_display()}, not {role.title()}.'}, status=403)
             login(request, user)
             return Response({'message': 'Login successful', 'user': UserSerializer(user).data})
         

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/GlassCard';
@@ -10,13 +10,15 @@ import { PartyPopper, Flame, AlertTriangle, Camera } from 'lucide-react';
 
 const InspectorDashboard = () => {
     const navigate = useNavigate();
+    const navigateRef = useRef(navigate);
+    navigateRef.current = navigate;
     const { toast } = useToast();
     const [complaints, setComplaints] = useState([]);
     const [collectors, setCollectors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedComplaint, setSelectedComplaint] = useState(null);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const [complaintsRes, collectorsRes] = await Promise.all([
                 getComplaints({ status: 'PENDING,ESCALATED' }),
@@ -26,10 +28,9 @@ const InspectorDashboard = () => {
             setCollectors([...collectorsRes.data].sort((a, b) => a.username.localeCompare(b.username)));
             setLoading(false);
         } catch (err) {
-            onError();
-            if (err.response?.status === 401) navigate('/login/inspector');
+            if (err.response?.status === 401) navigateRef.current('/login/inspector');
         }
-    };
+    }, []);
 
     const handleAssign = async (complaintId, collectorId) => {
         try {

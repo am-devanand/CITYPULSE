@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/GlassCard';
 import { getComplaints, getDashboardStats } from '../api';
@@ -15,8 +15,10 @@ const OfficerDashboard = () => {
     });
     const [complaints, setComplaints] = useState([]);
     const [filter, setFilter] = useState('ALL');
+    const navigateRef = useRef(navigate);
+    navigateRef.current = navigate;
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const [statsRes, complaintsRes] = await Promise.all([
                 getDashboardStats(),
@@ -25,10 +27,9 @@ const OfficerDashboard = () => {
             setStats(statsRes.data);
             setComplaints(complaintsRes.data);
         } catch (err) {
-            onError();
-            if (err.response?.status === 401) navigate('/login/officer');
+            if (err.response?.status === 401) navigateRef.current('/login/officer');
         }
-    };
+    }, []);
 
     const { onError } = usePoll(fetchData, { interval: 10000, maxInterval: 60000 });
 

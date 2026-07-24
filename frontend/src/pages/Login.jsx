@@ -13,6 +13,13 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const passwordHints = {
+        citizen: { user: 'guest', pass: 'guest' },
+        inspector: { user: 'inspector', pass: 'admin' },
+        collector: { user: 'collector1', pass: 'admin' },
+        officer: { user: 'officer', pass: 'admin' },
+    };
+
     const roleConfig = {
         citizen: { title: 'Citizen Login', bg: 'bg-citizen', redirect: '/citizen', btn: 'bg-gradient-to-r from-cyan-500 to-blue-600' },
         inspector: { title: 'Inspector Login', bg: 'bg-inspector', redirect: '/inspector', btn: 'bg-gradient-to-r from-emerald-500 to-teal-600' },
@@ -21,6 +28,7 @@ const Login = () => {
     };
 
     const config = roleConfig[role] || roleConfig.citizen;
+    const hints = passwordHints[role] || passwordHints.citizen;
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -61,7 +69,7 @@ const Login = () => {
                     </div>
 
                     {error && (
-                        <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-100 text-sm text-center">
+                        <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-100 text-sm text-center" role="alert" aria-live="assertive">
                             {error}
                         </div>
                     )}
@@ -107,17 +115,17 @@ const Login = () => {
                         </button>
                     </form>
 
-                    {role === 'citizen' && (
-                        <div className="mt-6 text-center text-sm text-white/50 space-y-2">
-                            <p>Demo Citizen: username: <strong>guest</strong> / password: <strong>guest</strong></p>
+                    <div className="mt-6 text-center text-sm text-white/50 space-y-2">
+                        <p role="status">Demo {role?.charAt(0).toUpperCase() + role?.slice(1) || 'User'}: username: <strong>{hints.user}</strong> / password: <strong>{hints.pass}</strong></p>
+                        {role === 'citizen' && (
                             <p className="text-white/40">
                                 Don't have an account?{' '}
                                 <Link to="/signup" className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium">
                                     Sign up
                                 </Link>
                             </p>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     <div className="mt-6 text-center">
                         <button

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-const usePoll = (callback, { interval = 10000, maxInterval = 60000 } = {}) => {
+const usePoll = (callback, { interval = 10000, maxInterval = 60000, maxErrors = null } = {}) => {
     const savedCallback = useRef(callback);
     const intervalRef = useRef(null);
     const currentInterval = useRef(interval);
@@ -18,6 +18,23 @@ const usePoll = (callback, { interval = 10000, maxInterval = 60000 } = {}) => {
         }
     }, []);
 
+    const stop = useCallback(() => {
+        isActive.current = false;
+        clear();
+    }, [clear]);
+
+    const start = useCallback(() => {
+        isActive.current = true;
+        currentInterval.current = interval;
+        errorCount.current = 0;
+        clear();
+        if (isActive.current) {
+            intervalRef.current = setInterval(() => {
+                savedCallback.current();
+            }, currentInterval.current);
+        }
+    }, [interval, clear]);
+
     const resetInterval = useCallback(() => {
         currentInterval.current = interval;
         errorCount.current = 0;
@@ -30,15 +47,12 @@ const usePoll = (callback, { interval = 10000, maxInterval = 60000 } = {}) => {
     }, [interval, clear]);
 
     useEffect(() => {
-        // Initial call
         savedCallback.current();
 
-        // Start polling
         intervalRef.current = setInterval(() => {
             savedCallback.current();
         }, currentInterval.current);
 
-        // Handle tab visibility
         const handleVisibility = () => {
             if (document.hidden) {
                 isActive.current = false;
@@ -56,9 +70,12 @@ const usePoll = (callback, { interval = 10000, maxInterval = 60000 } = {}) => {
         };
     }, [clear, resetInterval]);
 
-    // Expose a way to handle errors and increase interval
     const onError = useCallback(() => {
         errorCount.current += 1;
+        if (maxErrors !== null && errorCount.current >= maxErrors) {
+            stop();
+            return;
+        }
         currentInterval.current = Math.min(
             currentInterval.current * 1.5,
             maxInterval
@@ -69,9 +86,9 @@ const usePoll = (callback, { interval = 10000, maxInterval = 60000 } = {}) => {
                 savedCallback.current();
             }, currentInterval.current);
         }
-    }, [maxInterval, clear]);
+    }, [maxInterval, clear, maxErrors, stop]);
 
-    return { onError, resetInterval };
+    return { onError, resetInterval, stop, start };
 };
 
 export default usePoll;
